@@ -3,21 +3,26 @@ const app = express();
 
 app.use(express.json());
 
-let notes = [
+let persons = [
   {
     id: "1",
-    content: "HTML is easy",
-    important: true,
+    name: "Arto Hellas",
+    number: "040-123456",
   },
   {
     id: "2",
-    content: "Browser can execute only JavaScript",
-    important: false,
+    name: "Ada Lovelace",
+    number: "39-44-5323523",
   },
   {
     id: "3",
-    content: "GET and POST are the most important methods of HTTP protocol",
-    important: true,
+    name: "Dan Abramov",
+    number: "12-43-234345",
+  },
+  {
+    id: "4",
+    name: "Mary Poppendieck",
+    number: "39-23-6423122",
   },
 ];
 
@@ -25,15 +30,20 @@ app.get("/", (req, res) => {
   res.send("<h1>Hello World!</h1>");
 });
 
-app.get("/api/notes", (req, res) => {
-  res.json(notes);
+app.get('/api/info', (req, res) => {
+  const date = new Date();
+  res.send(`<p>Phonebook has info for ${persons.length} people</p><p>${date}</p>`);
+})
+
+app.get("/api/persons", (req, res) => {
+  res.json(persons);
 });
 
-app.get("/api/notes/:id", (req, res) => {
+app.get("/api/persons/:id", (req, res) => {
   const id = req.params.id;
-  const note = notes.find((note) => note.id === id);
-  if (note) {
-    res.json(note);
+  const person = persons.find((note) => note.id === id);
+  if (person) {
+    res.json(person);
   } else {
     res.status(404).end();
   }
@@ -67,7 +77,7 @@ app.post("/api/notes", (req, res) => {
 
 app.delete("/api/notes/:id", (req, res) => {
   const id = req.params.id;
-  notes = notes.filter((note) => note.id !== id);
+  persons = persons.filter((note) => note.id !== id);
   res.status(204).end();
 });
 
