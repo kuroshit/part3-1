@@ -1,7 +1,15 @@
 const express = require("express");
+const morgan = require("morgan");
 const app = express();
 
+morgan.token("body", (req) => JSON.stringify(req.body));
+
 app.use(express.json());
+app.use(
+  morgan(':method :url :status :res[content-length] - :response-time ms :body', {
+    skip: (req) => req.method !== "POST",
+  })
+);
 
 let persons = [
   {
@@ -30,10 +38,12 @@ app.get("/", (req, res) => {
   res.send("<h1>Hello World!</h1>");
 });
 
-app.get('/api/info', (req, res) => {
+app.get("/api/info", (req, res) => {
   const date = new Date();
-  res.send(`<p>Phonebook has info for ${persons.length} people</p><p>${date}</p>`);
-})
+  res.send(
+    `<p>Phonebook has info for ${persons.length} people</p><p>${date}</p>`
+  );
+});
 
 app.get("/api/persons", (req, res) => {
   res.json(persons);
@@ -49,30 +59,35 @@ app.get("/api/persons/:id", (req, res) => {
   }
 });
 
-const generateMaxId = () => {
-  const maxId = notes.length > 0 ? Math.max(...notes.map((n) => n.id)) : 0;
-  return maxId + 1;
-};
-
-app.post("/api/notes", (req, res) => {
-  const body = req.body;
-  if (!body.content) {
-    return res.status(400).json({
-      error: "content missing",
-    });
+const validatePerson = (person) => {
+  if (!person.name || !person.number) {
+    return true;
   }
 
-  const note = {
-    id: String(generateMaxId()),
-    content: body.content,
-    important: body.important || false,
+  if (persons.find((p) => p.name === person.name)) {
+    return true;
+  }
+
+  return false;
+};
+
+app.post("/api/persons", (req, res) => {
+  const body = req.body;
+  if (validatePerson(body)) {
+    return res.status(400).json({ error: "Bad Request" });
+  }
+
+  const person = {
+    id: Math.random().toString(36),
+    name: body.name,
+    number: body.number,
   };
 
-  console.log(note);
+  console.log(person);
 
-  notes = notes.concat(note);
+  persons = persons.concat(person);
 
-  res.json(note);
+  res.json(person);
 });
 
 app.delete("/api/notes/:id", (req, res) => {
