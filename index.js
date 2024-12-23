@@ -1,6 +1,9 @@
 const express = require("express");
 const morgan = require("morgan");
 const cors = require("cors");
+require("dotenv").config();
+const Note = require("./models/note");
+const Phonebook = require("./models/phonebook");
 const app = express();
 
 morgan.token("body", (req) => JSON.stringify(req.body));
@@ -17,52 +20,10 @@ app.use(
   )
 );
 
-let persons = [
-  {
-    id: "1",
-    name: "Arto Hellas",
-    number: "040-123456",
-  },
-  {
-    id: "2",
-    name: "Ada Lovelace",
-    number: "39-44-5323523",
-  },
-  {
-    id: "3",
-    name: "Dan Abramov",
-    number: "12-43-234345",
-  },
-  {
-    id: "4",
-    name: "Mary Poppendieck",
-    number: "39-23-6423122",
-  },
-];
-
-let notes = [
-  {
-    id: "1",
-    content: "HTML is easy",
-    date: "2019-05-30T17:30:31.098Z",
-    important: true,
-  },
-  {
-    id: "2",
-    content: "Browser can execute only Javascript",
-    date: "2019-05-30T18:39:34.091Z",
-    important: false,
-  },
-  {
-    id: "3",
-    content: "GET and POST are the most important methods of HTTP protocol",
-    date: "2019-05-30T19:20:14.298Z",
-    important: true,
-  },
-];
-
 app.get("/api/notes", (req, res) => {
-  res.json(notes);
+  Note.find({}).then((notes) => {
+    res.json(notes);
+  });
 });
 
 app.post("/api/notes", (req, res) => {
@@ -74,28 +35,25 @@ app.post("/api/notes", (req, res) => {
     });
   }
 
-  const note = {
-    id: String(notes.length + 1),
+  const note = new Note({
     content: body.content,
-    date: new Date(),
     important: body.important || false,
-  };
+    date: new Date(),
+  });
 
-  notes = notes.concat(note);
-
-  res.json(note);
+  note.save().then((savedNote) => {
+    res.json(savedNote);
+  });
 });
 
-app.put('/api/notes/:id', (req, res) => {
-  const id = req.params.id
-  const body = req.body
+app.put("/api/notes/:id", (req, res) => {
+  const id = req.params.id;
+  const body = req.body;
 
-  console.log(body)
+  notes = notes.map((note) => (note.id !== id ? note : body));
 
-  notes = notes.map(note => note.id !== id ? note : body)
-
-  res.json(body)
-})
+  res.json(body);
+});
 
 app.get("/", (req, res) => {
   res.send("<h1>Hello World!</h1>");
@@ -109,17 +67,26 @@ app.get("/api/info", (req, res) => {
 });
 
 app.get("/api/persons", (req, res) => {
-  res.json(persons);
+  Phonebook.find({}).then((persons) => {
+    if (persons) {
+      res.json(persons);
+    } else {
+      res.status(404).end();
+    }
+  });
 });
 
 app.get("/api/persons/:id", (req, res) => {
   const id = req.params.id;
-  const person = persons.find((note) => note.id === id);
-  if (person) {
-    res.json(person);
-  } else {
-    res.status(404).end();
-  }
+  Phonebook.findById(id)
+    .then((person) => {
+      if (person) {
+        res.json(person);
+      } else {
+        res.status(404).end();
+      }
+    })
+    .catch((error) => next(error));
 });
 
 const validatePerson = (person) => {
@@ -136,21 +103,30 @@ const validatePerson = (person) => {
 
 app.post("/api/persons", (req, res) => {
   const body = req.body;
-  if (validatePerson(body)) {
-    return res.status(400).json({ error: "Bad Request" });
-  }
+  // if (validatePerson(body)) {
+  //   return res.status(400).json({ error: "Bad Request" });
+  // }
 
-  const person = {
-    id: Math.random().toString(36),
+  const person = new Phonebook({
     name: body.name,
-    number: body.number,
-  };
+    phone: body.phone,
+  });
 
-  console.log(person);
+  person
+    .save()
+    .then((savedPerson) => {
+      res.json(savedPerson);
+    })
+    .catch((error) => {
+      res.status(400).json({ error: error.message });
+    });
+});
 
-  persons = persons.concat(person);
+app.delete("/api/persons/:id", (req, res) => {
+  const id = req.params.id;
+  persons = persons.filter((person) => person.id !== id);
 
-  res.json(person);
+  res.status(204).end();
 });
 
 app.delete("/api/notes/:id", (req, res) => {
@@ -159,6 +135,21 @@ app.delete("/api/notes/:id", (req, res) => {
   res.status(204).end();
 });
 
+const errorHandler = (error, req, res, next) => {
+  console.error(error.message);
+
+  if (error.name === "CastError") {
+    return res.status(400).send({ error: "malformatted id" });
+  } else if (error.name === "ValidationError") {
+    return res.status(400).json({ error: error.message });
+  }
+
+  next(error);
+};
+
+app.use(errorHandler);
+
 const PORT = process.env.PORT || 3001;
-app.listen(PORT);
-console.log(`Server running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
